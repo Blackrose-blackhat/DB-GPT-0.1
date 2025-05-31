@@ -1,0 +1,39 @@
+{
+  "name": "db-gpt-0.1",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types",
+    "test-server": "bun packages/api/server.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "prettier": "^3.5.3",
+    "ts-node": "^10.9.2",
+    "turbo": "^2.5.3",
+    "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "bun@1.2.10",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "dependencies": {
+    "@ai-sdk/google": "^1.2.18",
+    "@ai-sdk/openai": "^1.3.22",
+    "@ai-sdk/react": "^1.2.12",
+    "@fastify/cors": "^11.0.1",
+    "ai": "^4.3.16",
+    "dotenv": "^16.5.0",
+    "fastify": "^5.3.3",
+    "mongodb": "^6.16.0",
+    "nodemon": "^3.1.10",
+    "zod": "^3.25.34"
+  }
+}
