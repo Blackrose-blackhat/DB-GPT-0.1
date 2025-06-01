@@ -16,6 +16,7 @@ export interface GeneratePlanInput {
   provider: Provider;
   model: string;
   schema: Record<string, any>;
+  apiKey?: string; // <-- Add apiKey here
 }
 
 export async function generateMongoPlan({
@@ -23,7 +24,16 @@ export async function generateMongoPlan({
   provider,
   model,
   schema,
+  apiKey,
 }: GeneratePlanInput): Promise<MongoStructredQueryPlan> {
+  // Dynamically set env var for the provider
+  if (provider === "openai" && apiKey) {
+    process.env.OPENAI_API_KEY = apiKey;
+  }
+  if (provider === "gemini" && apiKey) {
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY = apiKey;
+  }
+
   const modelConfig =
     provider === "openai"
       ? openai(model === "gpt-4" ? "gpt-4" : "gpt-3.5-turbo-instruct")

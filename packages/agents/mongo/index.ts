@@ -101,6 +101,7 @@ export class MongoAgent {
       provider,
       model,
       schema,
+      apiKey: process.env[provider === "openai" ? "OPENAI_API_KEY" : "GOOGLE_GENERATIVE_AI_API_KEY"],
     });
 
     return plan;
@@ -118,14 +119,23 @@ export class MongoAgent {
     let res;
 
     switch (plan.operation) {
-      case "find":
+      case "find": {
+        let filter = plan.filter || {};
+        // Iterate over each filter field
+        filter = Object.entries(filter).reduce((acc, [key, value]) => {
+          // For string values, replace with a regex matching anywhere (case-insensitive)
+          if (typeof value === "string") {
+            acc[key] = { $regex: value, $options: "i" };
+          } else {
+            acc[key] = value;
+          }
+          return acc;
+        }, {} as Record<string, any>);
         res = await collection
-          .find(plan.filter || {}, {
-            projection: plan.projection,
-            ...plan.options,
-          })
+          .find(filter, { projection: plan.projection, ...plan.options })
           .toArray();
         break;
+      }
       case "aggregate":
         res = await collection
           .aggregate(plan.aggregatePipeline || [], plan.options)
