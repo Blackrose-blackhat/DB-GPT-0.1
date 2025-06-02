@@ -7,8 +7,8 @@
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
-    "test-server": "bun packages/api/server.ts",
-    "frontend": "bun run --cwd apps/web dev",
+    "test-server": "bun packages/api/server.ts --port 3001",
+    "frontend": "bun run dev --cwd apps/web -- --port 3000",
     "dev:all": "concurrently \"bun run test-server\" \"bun run frontend\""
   },
   "devDependencies": {

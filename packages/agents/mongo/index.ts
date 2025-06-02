@@ -26,7 +26,7 @@ function inferFieldType(value: any, key = ""): FieldInfo {
   if (Array.isArray(value)) {
     return {
       type: "array",
-      nested: value[0] ? inferFieldType(value[0]) : undefined,
+      nested: value[0] ? { "0": inferFieldType(value[0]) } : undefined,
     };
   }
 
