@@ -1,34 +1,39 @@
 import Fastify from 'fastify';
-import { generateMongoPlan } from '../agents/llm';
-import { MongoAgent } from '../agents/mongo';
+import { generateMongoPlan } from '../agents/llm/mongoPlanGenerator';
+import { generatePostgresPlan } from '../agents/llm/generatePostgresPlan';
+import { getAgent } from '../agents'; // <-- Import the agent factory
 import { Provider } from '../types/modelType.type';
 import dotenv from "dotenv";
 import cors from '@fastify/cors'; 
 const app = Fastify({ logger: true });
 dotenv.config();
 await app.register(cors, {
-  origin: true, // Allow all origins
+  origin: true,
 });
 interface RequestPayload {
   prompt: string;
   dbUrl: string;
   provider: Provider;
   model: string;
-  apiKey?: string; // Optional API key for LLM provider
+  apiKey?: string;
 }
 
 app.post<{ Body: RequestPayload }>('/analyze', async (req, res) => {
-  const { prompt, dbUrl, provider, model,apiKey } = req.body;
+  const { prompt, dbUrl, provider, model, apiKey } = req.body;
 
   try {
-    const agent = new MongoAgent(dbUrl);
+    const AgentClass = await getAgent(dbUrl); // <-- Use the factory
+    if (!AgentClass) {
+      return res.status(400).send({ error: "No suitable agent found for the provided dbUrl" });
+    }
+    const agent = new AgentClass(dbUrl);
     const schema = await agent.introspect();
 
     const plan = await generateMongoPlan({
       prompt,
       provider,
       model,
-      schema, // 👈 pass the schema to guide LLM
+      schema,
       apiKey: process.env[provider === "openai" ? "OPENAI_API_KEY" : "GOOGLE_GENERATIVE_AI_API_KEY"],
     });
 
@@ -41,23 +46,40 @@ app.post<{ Body: RequestPayload }>('/analyze', async (req, res) => {
 app.post<{ Body: RequestPayload }>('/execute', async (req, res) => {
   const { prompt, dbUrl, provider, model } = req.body;
 
-  // Get API key from headers
   const geminiApiKey = req.headers['x-gemini-api-key'] as string | undefined;
   const openaiApiKey = req.headers['x-openai-api-key'] as string | undefined;
   const apiKey = provider === "gemini" ? geminiApiKey : openaiApiKey;
 
   try {
-    const agent = new MongoAgent(dbUrl);
+    const AgentClass = await getAgent(dbUrl);
+    if (!AgentClass) {
+      return res.status(400).send({ error: "No suitable agent found for the provided dbUrl" });
+    }
+    const agent = new AgentClass(dbUrl);
     const schema = await agent.introspect();
     app.log.info("Introspected schema:", schema);
 
-    const plan = await generateMongoPlan({
-      prompt,
-      provider,
-      model,
-      schema,
-      apiKey, // Pass the user-supplied API key here
-    });
+    // Choose the correct plan generator based on agent type
+    let plan;
+    if (agent.constructor.name === "MongoAgent") {
+      plan = await generateMongoPlan({
+        prompt,
+        provider,
+        model,
+        schema,
+        apiKey,
+      });
+    } else if (agent.constructor.name === "PostgresAgent") {
+      plan = await generatePostgresPlan({
+        prompt,
+        provider,
+        model,
+        schema,
+        apiKey,
+      });
+    } else {
+      return res.status(400).send({ error: "Unsupported database agent" });
+    }
 
     if (!agent.validate(plan)) {
       return res.status(400).send({ error: 'Invalid plan structure' });
