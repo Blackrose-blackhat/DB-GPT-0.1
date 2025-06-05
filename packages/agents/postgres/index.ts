@@ -1,21 +1,34 @@
 import { Client } from "pg";
 import { Provider } from "../../types/modelType.type";
-import { generatePostgresPlan } from "../llm/generatePostgresPlan"; // You should implement this similar to generateMongoPlan
+import { generatePostgresPlan } from "../llm/generatePostgresPlan";
 
 export class PostgresAgent {
   client: Client;
   dbName: string;
+  connected: boolean = false;
 
   constructor(dbUrl: string) {
     this.client = new Client({ connectionString: dbUrl });
-    // Extract dbName from the URL
     const match = dbUrl.match(/\/([^/?]+)(\?|$)/);
     this.dbName = match ? match[1] : "";
   }
 
+  async connectIfNeeded() {
+    if (!this.connected) {
+      await this.client.connect();
+      this.connected = true;
+    }
+  }
+
+  async close() {
+    if (this.connected) {
+      await this.client.end();
+      this.connected = false;
+    }
+  }
+
   async introspect(): Promise<any> {
-    await this.client.connect();
-    // Get all table names
+    await this.connectIfNeeded();
     const tablesRes = await this.client.query(`
       SELECT table_name
       FROM information_schema.tables
@@ -24,7 +37,6 @@ export class PostgresAgent {
     const schema: Record<string, any> = {};
     for (const row of tablesRes.rows) {
       const table = row.table_name;
-      // Get columns for each table
       const columnsRes = await this.client.query(`
         SELECT column_name, data_type
         FROM information_schema.columns
@@ -37,7 +49,6 @@ export class PostgresAgent {
         }, {} as Record<string, any>)
       };
     }
-    await this.client.end();
     return schema;
   }
 
@@ -47,7 +58,6 @@ export class PostgresAgent {
     model: string = "gpt-3.5-turbo-instruct"
   ): Promise<any> {
     const schema = await this.introspect();
-    // You should implement generatePostgresPlan similar to generateMongoPlan
     const plan = await generatePostgresPlan({
       prompt: userPrompt,
       provider,
@@ -64,12 +74,17 @@ export class PostgresAgent {
   }
 
   async execute(plan: any): Promise<any> {
-    await this.client.connect();
+    await this.connectIfNeeded();
     let res;
     switch (plan.operation) {
       case "select": {
         const where = plan.where || "TRUE";
-        const query = `SELECT ${plan.fields?.join(", ") || "*"} FROM ${plan.table} WHERE ${where}`;
+        // Fix: Use '*' if fields is missing or empty
+        const fields =
+          Array.isArray(plan.fields) && plan.fields.length > 0
+            ? plan.fields.join(", ")
+            : "*";
+        const query = `SELECT ${fields} FROM ${plan.table} WHERE ${where}`;
         res = await this.client.query(query);
         break;
       }
@@ -98,7 +113,6 @@ export class PostgresAgent {
       default:
         throw new Error("Unsupported operation");
     }
-    await this.client.end();
     return res.rows;
   }
 }

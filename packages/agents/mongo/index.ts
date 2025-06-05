@@ -161,4 +161,13 @@ export class MongoAgent {
     await this.client.close();
     return res;
   }
+
+  async close() {
+    // Safely close the client if it's open
+    try {
+      await this.client.close();
+    } catch (e) {
+      // ignore errors on close
+    }
+  }
 }
