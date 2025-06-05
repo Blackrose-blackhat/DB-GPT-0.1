@@ -153,7 +153,7 @@ packages/
 
 ## Credits
 
-- Built by [Your Name/Team]
+- Built by [Musharaf Parwez]
 - Inspired by the open-source AI/data community
 
 ---
